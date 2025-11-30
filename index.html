@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MindHealing | Cortex V7.6 (AI Tuning)</title>
+    <title>MindHealing | Cortex V7.9 (Date Fix)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Markdown Parser -->
@@ -172,9 +172,11 @@
                         <span id="completionDisplay" class="text-xl font-bold text-teal-400 font-mono">0%</span>
                         <div class="h-4 w-px bg-slate-600"></div>
                         <button id="backToTodayBtn" onclick="selectDate(todayStr)" class="hidden text-[10px] bg-slate-700 px-2 py-1 rounded hover:bg-teal-600 transition">Today</button>
-                        <span id="currentDateDisplay" class="text-xs text-gray-300 font-mono bg-slate-800/50 px-2 py-1 rounded border border-slate-600"></span>
                         
-                        <button id="deleteDayBtn" onclick="deleteCurrentDay()" class="hidden text-gray-500 hover:text-red-500 transition p-1" title="Clear this day's data">
+                        <!-- UPDATED DATE DISPLAY: Fixed Format & No Wrap -->
+                        <span id="currentDateDisplay" class="text-[10px] text-gray-300 font-mono bg-slate-800/50 px-2 py-1 rounded border border-slate-600 whitespace-nowrap"></span>
+                        
+                        <button id="deleteDayBtn" onclick="deleteCurrentDay()" class="invisible text-gray-500 hover:text-red-500 transition p-1 w-6 h-6 flex items-center justify-center" title="Clear this day's data">
                              <i class="fa-solid fa-trash text-sm"></i>
                         </button>
                     </div>
@@ -329,7 +331,7 @@
             document.getElementById('syncIdInput').value = SYNC_ID;
         };
 
-        // --- CLOUD & SYNC --- (Updated Strategy)
+        // --- CLOUD & SYNC ---
         async function initCloud() {
             if (!FIREBASE_CONFIG || !window.firebaseModules) return;
             try {
@@ -365,7 +367,6 @@
                 const { setDoc, doc } = window.firebaseModules;
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindhealing-standalone';
                 try { 
-                    // Using merge: true for regular saves to handle concurrent edits
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'mindhealing_users', SYNC_ID), appData, { merge: true }); 
                     updateSyncStatus('online'); 
                 }
@@ -373,40 +374,7 @@
             }
         }
 
-        // --- NEW: SURGICAL DELETE FUNCTION ---
-        async function deleteCurrentDay() {
-            if(confirm(`Delete all data for ${selectedDateStr}? This will reset the day to 'Empty'.`)) {
-                // 1. Delete Locally
-                delete appData[selectedDateStr];
-                localStorage.setItem('mindhealing_data_v4_2', JSON.stringify(appData));
-                
-                // 2. Update UI immediately
-                selectDate(selectedDateStr);
-
-                // 3. Delete from Cloud (Surgical)
-                if (db && SYNC_ID) {
-                    const { updateDoc, doc, deleteField } = window.firebaseModules;
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindhealing-standalone';
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'mindhealing_users', SYNC_ID);
-                    
-                    try {
-                        // Specifically delete ONLY this key from the Firestore document
-                        await updateDoc(docRef, {
-                            [selectedDateStr]: deleteField()
-                        });
-                        updateSyncStatus('online');
-                        console.log("Cloud delete successful");
-                    } catch(e) {
-                        console.error("Delete failed, fallback to full sync", e);
-                        // If updateDoc fails (e.g. doc doesn't exist), standard save might fix it eventually
-                        saveData(); 
-                    }
-                }
-            }
-        }
-
-        // --- CORE FUNCTIONS ---
-        // (Toggle Settings, Export, Import, Reset same as previous version)
+        // --- SETTINGS LOGIC ---
         function toggleSettings() { document.getElementById('settingsModal').classList.toggle('hidden'); }
         function generateNewSyncId() { document.getElementById('syncIdInput').value = generateUUID(); }
         function saveSettings() {
@@ -449,7 +417,8 @@
             const [y, m, d] = dateStr.split('-').map(Number);
             const dateObj = new Date(y, m - 1, d); 
             
-            const options = { weekday: 'long', month: 'long', day: 'numeric' };
+            // UPDATE: Changed from 'long' to 'short' to reduce string length
+            const options = { weekday: 'short', month: 'short', day: 'numeric' }; 
             document.getElementById('currentDateDisplay').innerText = dateObj.toLocaleDateString('en-US', options);
             document.getElementById('calMonthName').innerText = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
             
@@ -457,8 +426,8 @@
             document.getElementById('journalEntry').value = hasData ? (appData[selectedDateStr].journal || "") : "";
             
             const deleteBtn = document.getElementById('deleteDayBtn');
-            if (hasData) deleteBtn.classList.remove('hidden');
-            else deleteBtn.classList.add('hidden');
+            if (hasData) deleteBtn.classList.remove('invisible');
+            else deleteBtn.classList.add('invisible');
 
             const backBtn = document.getElementById('backToTodayBtn');
             if (dateStr === todayStr) backBtn.classList.add('hidden');
@@ -495,6 +464,36 @@
             document.getElementById('streakRing').style.background = `conic-gradient(#f59e0b ${pct}%, #334155 ${pct}%)`;
 
             if(currentMainView === 'chart') renderChart(); 
+        }
+
+        // --- NEW: SURGICAL DELETE FUNCTION ---
+        async function deleteCurrentDay() {
+            if(confirm(`Delete all data for ${selectedDateStr}? This will reset the day to 'Empty'.`)) {
+                // 1. Delete Locally
+                delete appData[selectedDateStr];
+                localStorage.setItem('mindhealing_data_v4_2', JSON.stringify(appData));
+                
+                // 2. Update UI immediately
+                selectDate(selectedDateStr);
+
+                // 3. Delete from Cloud (Surgical)
+                if (db && SYNC_ID) {
+                    const { updateDoc, doc, deleteField } = window.firebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindhealing-standalone';
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'mindhealing_users', SYNC_ID);
+                    
+                    try {
+                        await updateDoc(docRef, {
+                            [selectedDateStr]: deleteField()
+                        });
+                        updateSyncStatus('online');
+                        console.log("Cloud delete successful");
+                    } catch(e) {
+                        console.error("Delete failed, fallback to full sync", e);
+                        saveData(); 
+                    }
+                }
+            }
         }
 
         // --- CHECKLIST RENDERER (With Accordion) ---
@@ -668,16 +667,16 @@
             if (currentHabits.noFP) {
                 // Checked (User claims success)
                 if (isToday && currentHour < 21) { // Before 9 PM
-                     nofpStatus = "CLEAN SO FAR (Maintain Guard - Day not over)";
+                     nofpStatus = "CLEAN SO FAR (Maintain Guard)";
                 } else {
                      nofpStatus = "SUCCESS (Clean Day Secured)";
                 }
             } else {
                 // Unchecked
                 if (isToday) {
-                    nofpStatus = "IN PROGRESS (Current State: Vulnerable but Clean)";
+                    nofpStatus = "IN PROGRESS (Vulnerable but Clean)";
                 } else {
-                    nofpStatus = "RELAPSED"; // Past day and unchecked
+                    nofpStatus = "RELAPSED"; 
                 }
             }
 
@@ -691,22 +690,19 @@
             };
 
              const prompt = `
-             ACT AS: MindHealing AI (Secure Attachment Figure). 
+             ACT AS: MindHealing AI (A supportive friend and mentor). 
              TARGET: Santiago. 
-             DATE: ${selectedDateStr}. TIME: ${now.toLocaleTimeString()}. 
              DATA: ${JSON.stringify(readableData)}. 
              NOTE: "${journal}". 
              
-             TASK: Daily analysis. NO variable names. Natural conversation. < 150 words.
+             TASK: Write a short, encouraging analysis of today.
              
-             SPECIFIC INSTRUCTIONS:
-             1. **KEEP IT SIMPLE.** Use easy, everyday language.
-             2. **NO HEADERS.** No "Data:" or "Analysis:" sections.
-             3. **NO VARIABLE NAMES.**
-             4. If 'Relapse Prevention' is 'CLEAN SO FAR': Acknowledge the good start, but remind him the battle isn't won until sleep.
-             5. If 'Relapse Prevention' is 'IN PROGRESS': He has NOT relapsed. He just hasn't checked the box yet. Encourage him to stay strong.
-             6. If 'Pending' items exist: Gently push him to do them now.
-             7. Only treat it as a 'Relapse' if the status explicitly says 'RELAPSED'.
+             CRITICAL RULES:
+             1. **KEEP IT SIMPLE.** Use easy, everyday language. No complex medical jargon.
+             2. **NO HEADERS.** Do not use "Data:", "Analysis:", or bullet points. Just write a nice paragraph.
+             3. **NO VARIABLE NAMES.** Never say "noFP" or "breathLunch".
+             4. **MAX 170 WORDS.** Be concise.
+             5. If he is doing well, tell him you are proud. If he missed something, gently remind him why it helps.
              `;
 
              try {
@@ -752,21 +748,7 @@
             if(!API_KEY) { toggleSettings(); return; }
             if(!thought) return;
             btn.innerHTML = '<div class="loader"></div>';
-            
-            const prompt = `
-            ACT AS: A wise, calm friend (using CBT principles).
-            USER: Santiago (Dealing with anxiety).
-            ANXIOUS THOUGHT: "${thought}"
-            
-            TASK: Help him see this differently.
-            
-            CRITICAL RULES:
-            1. **DIRECT ANSWER ONLY.** Do NOT explain your methods (no "Thought Process", "Core Emotion", "Distortion").
-            2. **SIMPLE LANGUAGE.** Talk like a normal person, not a therapist.
-            3. **MAX 150 WORDS.**
-            4. Validate briefly, then offer a grounded, stoic perspective shift.
-            `;
-
+            const prompt = `ACT AS: A wise, calm friend. REFRAME THOUGHT: "${thought}". SIMPLE LANGUAGE. NO HEADERS. < 170 words.`;
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MindHealing | Cortex V7.1 (Fixed)</title>
+    <title>MindHealing | Cortex V7.6 (AI Tuning)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Markdown Parser -->
@@ -13,14 +13,12 @@
     <!-- Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
-    <!-- FIREBASE SDK (Corrected Version) -->
+    <!-- FIREBASE SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Expose Firebase to global scope for the main script
-        window.firebaseModules = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, onSnapshot, setDoc, collection };
+        import { getFirestore, doc, onSnapshot, setDoc, collection, deleteField, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        window.firebaseModules = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, onSnapshot, setDoc, collection, deleteField, updateDoc };
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
@@ -52,29 +50,14 @@
         .checkbox-wrapper input:checked + div { background-color: #14b8a6; border-color: #14b8a6; }
         
         /* Calendar Styling */
-        .cal-grid { 
-            display: grid; 
-            grid-template-columns: repeat(7, 1fr); 
-            gap: 0.5rem; 
-            grid-auto-rows: 1fr; 
-        }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; grid-auto-rows: 1fr; }
         .cal-day-header { text-align: center; font-size: 0.75rem; color: #64748b; font-weight: bold; padding-bottom: 0.5rem; }
         
         .cal-day { 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            border-radius: 8px; 
-            font-size: 0.85rem; 
-            cursor: pointer; 
-            transition: all 0.3s ease; 
-            position: relative;
-            border: 1px solid transparent;
-            background-color: rgba(51, 65, 85, 0.3);
-            color: #94a3b8;
-            height: 100%; 
+            display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 0.85rem; 
+            cursor: pointer; transition: all 0.3s ease; position: relative; border: 1px solid transparent;
+            background-color: rgba(51, 65, 85, 0.3); color: #94a3b8; height: 100%; 
         }
-        
         .cal-day:hover { transform: translateY(-2px); z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.5); border-color: #64748b; }
         
         /* Status Colors */
@@ -85,20 +68,6 @@
         .cal-today { font-weight: bold; color: #fff !important; border: 1px solid rgba(255,255,255,0.8) !important; background: rgba(255,255,255,0.05); box-shadow: 0 0 10px rgba(255,255,255,0.1); }
         .cal-selected { box-shadow: 0 0 0 2px #14b8a6; transform: scale(1.05); z-index: 5; background-color: rgba(20, 184, 166, 0.1); }
 
-        .tooltip-trigger { position: relative; cursor: help; }
-        .tooltip-content {
-            visibility: hidden; opacity: 0; width: 280px;
-            background-color: #0f172a; color: #cbd5e1;
-            text-align: left; border-radius: 8px; padding: 12px;
-            position: absolute; z-index: 50; bottom: 125%; left: 50%; 
-            margin-left: -140px; border: 1px solid #334155;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            transition: opacity 0.3s; font-size: 0.8rem; line-height: 1.4;
-            pointer-events: none;
-        }
-        .tooltip-trigger:hover .tooltip-content { visibility: visible; opacity: 1; }
-        .tooltip-content::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #334155 transparent transparent transparent; }
-
         .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #14b8a6; width: 16px; height: 16px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes pulse-fire { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
@@ -107,6 +76,10 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .sync-active { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
         .sync-offline { border-color: #64748b !important; }
+        
+        /* Accordion Transition */
+        .habit-info { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, opacity 0.3s ease-out; opacity: 0; }
+        .habit-info.expanded { max-height: 100px; opacity: 1; margin-top: 0.5rem; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 bg-gradient-to-br from-slate-900 to-slate-850">
@@ -115,30 +88,20 @@
     <div id="settingsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 hidden backdrop-blur-sm">
         <div class="glass-panel p-6 rounded-lg max-w-md w-full relative shadow-2xl max-h-[90vh] overflow-y-auto">
             <button onclick="toggleSettings()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-            
-            <h2 class="text-xl font-bold mb-4 text-teal-400 flex items-center gap-2">
-                <i class="fa-solid fa-gear"></i> System Settings
-            </h2>
-
-            <!-- AI Section -->
+            <h2 class="text-xl font-bold mb-4 text-teal-400 flex items-center gap-2"><i class="fa-solid fa-gear"></i> System Settings</h2>
             <div class="mb-6 border-b border-slate-700/50 pb-6">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">1. AI Cortex (Gemini API)</label>
                 <input type="password" id="apiKeyInput" placeholder="Paste Gemini API Key..." class="w-full p-3 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:border-teal-500 mb-2 text-white font-mono text-sm">
             </div>
-
-            <!-- Cloud Sync Section -->
             <div class="mb-2">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">2. Cloud Sync (Multi-Device)</label>
                 <p class="text-[10px] text-gray-400 mb-2">To sync Phone & PC: 1. Create a free Firebase project. 2. Paste the Config object below on ALL devices.</p>
-                
                 <textarea id="firebaseConfigInput" placeholder='Paste Firebase Config JSON here... { "apiKey": "...", ... }' class="w-full p-3 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:border-blue-500 mb-2 text-white font-mono text-[10px] h-24"></textarea>
-                
                 <div class="flex gap-2 mb-2">
                     <input type="text" id="syncIdInput" placeholder="Sync ID (Shared Key)" class="flex-grow p-3 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:border-blue-500 text-white font-mono text-sm">
                     <button onclick="generateNewSyncId()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 rounded text-xs" title="Generate New ID"><i class="fa-solid fa-dice"></i></button>
                 </div>
             </div>
-
             <button onclick="saveSettings()" class="w-full py-3 bg-teal-600 hover:bg-teal-500 rounded font-bold transition shadow-lg shadow-teal-900/50 mt-4">Save & Connect System</button>
         </div>
     </div>
@@ -152,9 +115,7 @@
                 <span class="flex items-center justify-center gap-2"><div class="loader"></div> Contacting Rational Brain...</span>
             </div>
             <div id="timerDisplay" class="text-7xl font-mono font-bold text-white mb-6 tracking-widest tabular-nums">20:00</div>
-            <p class="text-gray-400 mb-8 text-xs leading-relaxed uppercase tracking-widest">
-                DO NOT NEGOTIATE WITH THE LIMBIC SYSTEM.
-            </p>
+            <p class="text-gray-400 mb-8 text-xs leading-relaxed uppercase tracking-widest">DO NOT NEGOTIATE WITH THE LIMBIC SYSTEM.</p>
             <div class="flex gap-3 justify-center">
                 <button onclick="closeUrgeModal()" class="px-8 py-3 bg-slate-700 rounded hover:bg-slate-600 text-white font-bold transition">Close</button>
             </div>
@@ -166,25 +127,19 @@
         
         <!-- HEADER STATS & TOOLS -->
         <div class="lg:col-span-3 glass-panel p-4 md:p-6 rounded-xl flex flex-col md:flex-row justify-between items-center relative gap-4">
-            <!-- Left: Identity -->
             <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-teal-900/50 flex items-center justify-center border border-teal-500/30">
-                        <i class="fa-solid fa-brain text-teal-400"></i>
-                    </div>
+                    <div class="w-10 h-10 rounded-full bg-teal-900/50 flex items-center justify-center border border-teal-500/30"><i class="fa-solid fa-brain text-teal-400"></i></div>
                     <div>
                         <h1 class="text-xl font-bold tracking-wider text-white">MIND<span class="text-teal-400">HEALING</span></h1>
                         <p class="text-[10px] text-gray-400 font-mono tracking-widest">STATUS: <span class="text-teal-400">ACTIVE</span></p>
                     </div>
                 </div>
             </div>
-            <!-- Center: Control Hub -->
             <div class="order-3 md:order-2 flex items-center gap-3 bg-slate-800/50 p-2 rounded-xl border border-slate-700/50">
                 <div class="flex items-center gap-3 bg-slate-900/80 px-4 py-1.5 rounded-lg border border-slate-700 shadow-inner group">
                     <div class="relative w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 transition-all duration-700" id="streakRing" style="background: conic-gradient(#f59e0b 0%, #334155 0%);">
-                        <div class="absolute inset-1 bg-slate-900 rounded-full flex items-center justify-center z-10">
-                            <i class="fa-solid fa-fire text-orange-500 text-xs flame-anim"></i>
-                        </div>
+                        <div class="absolute inset-1 bg-slate-900 rounded-full flex items-center justify-center z-10"><i class="fa-solid fa-fire text-orange-500 text-xs flame-anim"></i></div>
                     </div>
                     <div class="flex flex-col">
                         <div class="text-xl font-bold text-white leading-none" id="headerStreakDisplay">0</div>
@@ -195,19 +150,14 @@
                     <i class="fa-solid fa-water"></i> <span>PANIC</span>
                 </button>
             </div>
-            <!-- Right: Tools -->
             <div class="order-2 md:order-3 flex items-center gap-4 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700">
-                <!-- Sync Status -->
                 <div id="syncStatus" class="w-2 h-2 rounded-full bg-gray-600" title="Cloud Offline"></div>
-                
                 <button onclick="exportData()" class="text-gray-400 hover:text-teal-400 transition tooltip-trigger" title="Export Backup"><i class="fa-solid fa-download"></i></button>
                 <label class="text-gray-400 hover:text-teal-400 transition cursor-pointer tooltip-trigger" title="Import Backup">
                     <i class="fa-solid fa-upload"></i>
                     <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(this)">
                 </label>
-                <button onclick="resetAllData()" class="text-gray-400 hover:text-red-500 transition tooltip-trigger" title="Reset All Data">
-                    <i class="fa-solid fa-trash-can"></i>
-                </button>
+                <button onclick="resetAllData()" class="text-gray-400 hover:text-red-500 transition tooltip-trigger" title="Reset All Data"><i class="fa-solid fa-trash-can"></i></button>
                 <div class="h-4 w-px bg-slate-600"></div>
                 <button onclick="toggleSettings()" class="text-gray-400 hover:text-white transition tooltip-trigger" title="Settings"><i class="fa-solid fa-gear"></i></button>
             </div>
@@ -217,100 +167,35 @@
         <div class="lg:col-span-1 space-y-6">
             <div class="glass-panel p-6 rounded-xl min-h-[500px]">
                 <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-700/50">
-                    <h2 class="text-lg font-semibold text-gray-200 flex items-center">
-                        <i class="fa-regular fa-clipboard mr-2 text-teal-500"></i> Protocol
-                    </h2>
+                    <h2 class="text-lg font-semibold text-gray-200 flex items-center"><i class="fa-regular fa-clipboard mr-2 text-teal-500"></i> Protocol</h2>
                     <div class="flex items-center gap-3">
                         <span id="completionDisplay" class="text-xl font-bold text-teal-400 font-mono">0%</span>
                         <div class="h-4 w-px bg-slate-600"></div>
                         <button id="backToTodayBtn" onclick="selectDate(todayStr)" class="hidden text-[10px] bg-slate-700 px-2 py-1 rounded hover:bg-teal-600 transition">Today</button>
                         <span id="currentDateDisplay" class="text-xs text-gray-300 font-mono bg-slate-800/50 px-2 py-1 rounded border border-slate-600"></span>
+                        
+                        <button id="deleteDayBtn" onclick="deleteCurrentDay()" class="hidden text-gray-500 hover:text-red-500 transition p-1" title="Clear this day's data">
+                             <i class="fa-solid fa-trash text-sm"></i>
+                        </button>
                     </div>
                 </div>
 
                 <div class="space-y-5" id="habitList">
-                    <!-- Morning -->
-                    <div>
-                        <div class="text-[10px] font-bold text-teal-600 uppercase mb-2 tracking-wider">Morning (Activation)</div>
-                        <label class="checkbox-wrapper flex items-start cursor-pointer group mb-3">
-                            <input type="checkbox" class="hidden" onchange="toggleHabit('coldShower')">
-                            <div class="w-5 h-5 mt-1 border border-gray-600 rounded flex items-center justify-center transition group-hover:border-teal-500" id="box-coldShower"></div>
-                            <div class="ml-3 tooltip-trigger">
-                                <p class="text-sm font-medium text-gray-200 group-hover:text-teal-300 transition">Cold Shower (60s)</p>
-                                <span class="tooltip-content"><strong class="text-teal-400 block mb-1">Mechanism: Norepinephrine</strong>Spike arousal.</span>
-                            </div>
-                        </label>
-                        <label class="checkbox-wrapper flex items-start cursor-pointer group">
-                            <input type="checkbox" class="hidden" onchange="toggleHabit('bodyScan')">
-                            <div class="w-5 h-5 mt-1 border border-gray-600 rounded flex items-center justify-center transition group-hover:border-teal-500" id="box-bodyScan"></div>
-                            <div class="ml-3 tooltip-trigger">
-                                <p class="text-sm font-medium text-gray-200 group-hover:text-teal-300 transition">Body Scan (10m)</p>
-                                <span class="tooltip-content"><strong class="text-teal-400 block mb-1">Mechanism: Grounding</strong>Reduce dissociation.</span>
-                            </div>
-                        </label>
-                    </div>
-                    <!-- Work -->
-                    <div>
-                        <div class="text-[10px] font-bold text-teal-600 uppercase mb-2 tracking-wider mt-6">Work Block</div>
-                        <label class="checkbox-wrapper flex items-start cursor-pointer group mb-3">
-                            <input type="checkbox" class="hidden" onchange="toggleHabit('breathLunch')">
-                            <div class="w-5 h-5 mt-1 border border-gray-600 rounded flex items-center justify-center transition group-hover:border-teal-500" id="box-breathLunch"></div>
-                            <div class="ml-3 tooltip-trigger">
-                                <p class="text-sm font-medium text-gray-200 group-hover:text-teal-300 transition">4-7-8 Breathing</p>
-                                <span class="tooltip-content"><strong class="text-teal-400 block mb-1">Mechanism: Vagus Nerve</strong>Parasympathetic switch.</span>
-                            </div>
-                        </label>
-                    </div>
-                    <!-- Evening -->
-                    <div>
-                        <div class="text-[10px] font-bold text-teal-600 uppercase mb-2 tracking-wider mt-6">Evening (Wind Down)</div>
-                        <label class="checkbox-wrapper flex items-start cursor-pointer group mb-3">
-                            <input type="checkbox" class="hidden" onchange="toggleHabit('study')">
-                            <div class="w-5 h-5 mt-1 border border-gray-600 rounded flex items-center justify-center transition group-hover:border-teal-500" id="box-study"></div>
-                            <div class="ml-3 tooltip-trigger">
-                                <p class="text-sm font-medium text-gray-200 group-hover:text-teal-300 transition">Study Coursera</p>
-                                <span class="tooltip-content"><strong class="text-teal-400 block mb-1">Constraint: 30m Max</strong>Avoid productive procrastination.</span>
-                            </div>
-                        </label>
-                        <label class="checkbox-wrapper flex items-start cursor-pointer group mb-3">
-                            <input type="checkbox" class="hidden" onchange="toggleHabit('breathBed')">
-                            <div class="w-5 h-5 mt-1 border border-gray-600 rounded flex items-center justify-center transition group-hover:border-teal-500" id="box-breathBed"></div>
-                            <div class="ml-3 tooltip-trigger">
-                                <p class="text-sm font-medium text-gray-200 group-hover:text-teal-300 transition">4-7-8 Breathing (Sleep)</p>
-                                <span class="tooltip-content"><strong class="text-teal-400 block mb-1">Mechanism: Sleep</strong>Reduce cortisol.</span>
-                            </div>
-                        </label>
-                        <label class="checkbox-wrapper flex items-start cursor-pointer group">
-                            <input type="checkbox" class="hidden" onchange="toggleHabit('noFP')">
-                            <div class="w-5 h-5 mt-1 border border-red-900 bg-red-900/10 rounded flex items-center justify-center transition group-hover:border-green-500" id="box-noFP"></div>
-                            <div class="ml-3 tooltip-trigger">
-                                <p class="text-sm font-medium text-red-200 group-hover:text-red-100 transition">No FP / Relapse</p>
-                                <span class="tooltip-content"><strong class="text-red-400 block mb-1">Mechanism: Recovery</strong>Heal dopamine receptors.</span>
-                            </div>
-                        </label>
-                    </div>
+                    <!-- Dynamic Generation of Habits via JS to include Accordion -->
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT COLUMN: UNIFIED CONTAINER (Tabs) -->
+        <!-- RIGHT COLUMN -->
         <div class="lg:col-span-2 space-y-0 h-full flex flex-col">
             <div class="glass-panel p-6 rounded-xl min-h-[500px] flex flex-col h-full">
-                
-                <!-- NAVIGATION MENU (Tabs) -->
                 <div class="flex items-center justify-between border-b border-slate-700/50 pb-4 mb-6">
                     <div class="flex gap-4">
-                        <button onclick="switchMainView('calendar')" id="nav-calendar" class="flex items-center gap-2 pb-2 border-b-2 border-teal-500 text-white font-medium text-sm transition">
-                            <i class="fa-solid fa-calendar-days"></i> Map
-                        </button>
-                        <button onclick="switchMainView('ai')" id="nav-ai" class="flex items-center gap-2 pb-2 border-b-2 border-transparent text-gray-400 hover:text-white font-medium text-sm transition">
-                            <i class="fa-solid fa-brain"></i> Cortex
-                        </button>
-                        <button onclick="switchMainView('chart')" id="nav-chart" class="flex items-center gap-2 pb-2 border-b-2 border-transparent text-gray-400 hover:text-white font-medium text-sm transition">
-                            <i class="fa-solid fa-chart-simple"></i> Data
-                        </button>
+                        <button onclick="switchMainView('calendar')" id="nav-calendar" class="flex items-center gap-2 pb-2 border-b-2 border-teal-500 text-white font-medium text-sm transition"><i class="fa-solid fa-calendar-days"></i> Map</button>
+                        <button onclick="switchMainView('ai')" id="nav-ai" class="flex items-center gap-2 pb-2 border-b-2 border-transparent text-gray-400 hover:text-white font-medium text-sm transition"><i class="fa-solid fa-brain"></i> Cortex</button>
+                        <button onclick="switchMainView('chart')" id="nav-chart" class="flex items-center gap-2 pb-2 border-b-2 border-transparent text-gray-400 hover:text-white font-medium text-sm transition"><i class="fa-solid fa-chart-simple"></i> Data</button>
                     </div>
-                    <div id="viewTitle" class="text-xs font-mono text-teal-400 uppercase tracking-wider">MONTHLY OVERVIEW</div>
+                    <div id="viewTitle" class="text-[10px] md:text-xs font-mono text-teal-400 uppercase tracking-wider text-right ml-2">MONTHLY OVERVIEW</div>
                 </div>
 
                 <!-- VIEW 1: CALENDAR (DEFAULT) -->
@@ -324,9 +209,7 @@
                         </div>
                     </div>
                     <div class="cal-grid mb-2">
-                        <div class="cal-day-header">Sun</div><div class="cal-day-header">Mon</div><div class="cal-day-header">Tue</div>
-                        <div class="cal-day-header">Wed</div><div class="cal-day-header">Thu</div><div class="cal-day-header">Fri</div>
-                        <div class="cal-day-header">Sat</div>
+                        <div class="cal-day-header">Sun</div><div class="cal-day-header">Mon</div><div class="cal-day-header">Tue</div><div class="cal-day-header">Wed</div><div class="cal-day-header">Thu</div><div class="cal-day-header">Fri</div><div class="cal-day-header">Sat</div>
                     </div>
                     <div class="cal-grid flex-grow" id="calendarGrid"></div>
                 </div>
@@ -339,46 +222,31 @@
                         <button onclick="switchAITab('monthly')" id="subtab-monthly" class="px-3 py-1.5 rounded-md hover:bg-slate-700 text-gray-400 transition">Monthly Analysis</button>
                     </div>
 
-                    <!-- AI Subview 1 -->
+                    <!-- AI Subviews -->
                     <div id="ai-subview-analysis" class="flex-grow flex flex-col">
                         <div id="aiResponse" class="flex-grow bg-slate-900/50 rounded p-6 text-sm text-gray-300 leading-relaxed overflow-y-auto border border-slate-700/50 font-sans scrollbar-thin mb-4">
-                            <p class="italic text-gray-500 text-center mt-10">
-                                <i class="fa-regular fa-comment-dots text-3xl mb-3 block"></i>
-                                "I am your prefrontal cortex. Select a day on the calendar, verify your logs, and ask me to analyze your performance."
-                            </p>
+                            <p class="italic text-gray-500 text-center mt-10"><i class="fa-regular fa-comment-dots text-3xl mb-3 block"></i>"I am your prefrontal cortex. Select a day on the calendar, verify your logs, and ask me to analyze your performance."</p>
                         </div>
                         <div class="flex gap-2">
                             <input type="text" id="journalEntry" onchange="saveJournal()" placeholder="Journal: How did you feel today?" class="flex-grow bg-slate-800/80 border border-slate-600 rounded p-3 text-sm text-white focus:outline-none focus:border-teal-500 placeholder-gray-500 transition">
                             <button onclick="analyzeDay()" id="analyzeBtn" class="bg-teal-800 hover:bg-teal-700 text-teal-100 text-xs px-6 rounded transition border border-teal-600 font-bold">Analyze Day</button>
                         </div>
                     </div>
-
-                    <!-- AI Subview 2 -->
                     <div id="ai-subview-reframe" class="flex-grow flex flex-col hidden">
                         <div id="reframeOutput" class="flex-grow bg-slate-900/50 rounded p-6 text-sm text-gray-300 leading-relaxed overflow-y-auto border border-slate-700/50 font-sans scrollbar-thin mb-4">
-                            <p class="italic text-gray-500 text-center mt-10">
-                                <i class="fa-solid fa-brain text-3xl mb-3 block text-purple-400"></i>
-                                Cognitive Restructuring Tool.<br>Type an anxious or catastrophic thought below.
-                            </p>
+                            <p class="italic text-gray-500 text-center mt-10"><i class="fa-solid fa-brain text-3xl mb-3 block text-purple-400"></i>Cognitive Restructuring Tool.<br>Type an anxious or catastrophic thought below.</p>
                         </div>
                         <div class="flex gap-2">
                             <input type="text" id="anxiousThought" placeholder="Anxious thought (e.g. 'I am failing my dad...')" class="flex-grow bg-slate-800/80 border border-purple-900/50 rounded p-3 text-sm text-white focus:outline-none focus:border-purple-500 placeholder-gray-500 transition">
                             <button onclick="reframeThought()" id="reframeBtn" class="bg-purple-900 hover:bg-purple-800 text-purple-100 text-xs px-6 rounded transition border border-purple-700 font-bold">Reframe</button>
                         </div>
                     </div>
-
-                    <!-- AI Subview 3 -->
                     <div id="ai-subview-monthly" class="flex-grow flex flex-col hidden">
                         <div id="aiMonthlyResponse" class="flex-grow bg-slate-900/50 rounded p-6 text-sm text-gray-300 leading-relaxed overflow-y-auto border border-slate-700/50 font-sans scrollbar-thin mb-4">
-                            <p class="italic text-gray-500 text-center mt-10">
-                                <i class="fa-solid fa-chart-line text-3xl mb-3 block text-blue-400"></i>
-                                "Use this tool to review your progress for the current month. I will look for patterns, trends, and success rates."
-                            </p>
+                            <p class="italic text-gray-500 text-center mt-10"><i class="fa-solid fa-chart-line text-3xl mb-3 block text-blue-400"></i>"Use this tool to review your progress for the current month. I will look for patterns, trends, and success rates."</p>
                         </div>
                         <div class="flex justify-end">
-                            <button onclick="analyzeMonth()" id="analyzeMonthBtn" class="bg-blue-800 hover:bg-blue-700 text-blue-100 text-xs px-6 py-3 rounded transition border border-blue-600 font-bold w-full flex items-center justify-center gap-2">
-                                Analyze Monthly Performance
-                            </button>
+                            <button onclick="analyzeMonth()" id="analyzeMonthBtn" class="bg-blue-800 hover:bg-blue-700 text-blue-100 text-xs px-6 py-3 rounded transition border border-blue-600 font-bold w-full flex items-center justify-center gap-2">Analyze Monthly Performance</button>
                         </div>
                     </div>
                 </div>
@@ -386,9 +254,7 @@
                 <!-- VIEW 3: CHART -->
                 <div id="view-chart" class="flex-grow flex flex-col hidden fade-in">
                     <div class="text-xs text-gray-400 mb-2">Detailed habit composition per day.</div>
-                    <div class="flex-grow relative w-full min-h-[300px]">
-                        <canvas id="progressChart"></canvas>
-                    </div>
+                    <div class="flex-grow relative w-full min-h-[300px]"><canvas id="progressChart"></canvas></div>
                     <div class="flex flex-wrap justify-center gap-4 text-xs text-gray-400 border-t border-slate-700/50 pt-4 mt-auto">
                         <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-teal-400"></div>Cold Shower</div>
                         <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-blue-400"></div>Body Scan</div>
@@ -398,7 +264,6 @@
                         <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-rose-500"></div>Relapse</div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -410,7 +275,6 @@
         let SYNC_ID = localStorage.getItem('mindhealing_sync_id') || generateUUID(); 
         let FIREBASE_CONFIG = JSON.parse(localStorage.getItem('mindhealing_fb_config') || 'null');
         
-        // Environment Fallback
         if (!FIREBASE_CONFIG && typeof __firebase_config !== 'undefined') {
             FIREBASE_CONFIG = JSON.parse(__firebase_config);
         }
@@ -418,7 +282,17 @@
         let db = null;
         let unsubscribeSnap = null;
 
-        const habits = ['coldShower', 'bodyScan', 'breathLunch', 'study', 'breathBed', 'noFP'];
+        // Enhanced Habit Config for Mobile Generation
+        const habitConfig = [
+            { id: 'coldShower', label: 'Cold Shower (60s)', desc: 'Cold shock increases norepinephrine by 200-300%, replacing "cheap" dopamine with alertness.', type: 'morning' },
+            { id: 'bodyScan', label: 'Body Scan (10m)', desc: 'Pulls attention from the "Default Mode Network" (anxiety) into the body.', type: 'morning' },
+            { id: 'breathLunch', label: '4-7-8 Breathing', desc: 'Long exhales manually switch off the Fight/Flight response via Vagus Nerve.', type: 'work' },
+            { id: 'study', label: 'Study Coursera', desc: 'Constraint: Max 30 mins to avoid burnout and "productive procrastination".', type: 'evening' },
+            { id: 'breathBed', label: '4-7-8 Breathing (Sleep)', desc: 'Lowers cortisol and heart rate for non-medicated sleep induction.', type: 'evening' },
+            { id: 'noFP', label: 'No FP / Relapse', desc: 'Abstinence heals Desensitized Dopamine Receptors. Clean streak building.', type: 'evening' }
+        ];
+
+        const habits = habitConfig.map(h => h.id);
         
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -455,126 +329,97 @@
             document.getElementById('syncIdInput').value = SYNC_ID;
         };
 
-        // --- CLOUD SYNC ENGINE ---
+        // --- CLOUD & SYNC --- (Updated Strategy)
         async function initCloud() {
             if (!FIREBASE_CONFIG || !window.firebaseModules) return;
-            
             try {
                 const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, doc, onSnapshot, collection } = window.firebaseModules;
-                
                 const app = initializeApp(FIREBASE_CONFIG);
                 const auth = getAuth(app);
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindhealing-standalone';
-                
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                else await signInAnonymously(auth);
                 db = getFirestore(app);
-                
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'mindhealing_users', SYNC_ID);
-                
                 unsubscribeSnap = onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
-                        console.log("Cloud update");
                         appData = docSnap.data();
                         localStorage.setItem('mindhealing_data_v4_2', JSON.stringify(appData));
                         selectDate(selectedDateStr);
                         updateSyncStatus('online');
-                    } else {
-                        saveData(true); 
-                        updateSyncStatus('online');
-                    }
-                }, (error) => {
-                    console.error("Sync Error:", error);
-                    updateSyncStatus('error');
-                });
-
-            } catch (err) {
-                console.error("Firebase Init Failed:", err);
-                updateSyncStatus('offline');
-            }
+                    } else { saveData(true); updateSyncStatus('online'); }
+                }, (error) => { console.error("Sync Error:", error); updateSyncStatus('error'); });
+            } catch (err) { console.error("Firebase Init Failed:", err); updateSyncStatus('offline'); }
         }
 
         function updateSyncStatus(status) {
             const el = document.getElementById('syncStatus');
-            if(status === 'online') {
-                el.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]";
-                el.title = "Cloud Synced";
-            } else if (status === 'error') {
-                el.className = "w-2 h-2 rounded-full bg-red-500";
-                el.title = "Sync Error";
-            } else {
-                el.className = "w-2 h-2 rounded-full bg-gray-600";
-                el.title = "Offline";
-            }
+            if(status === 'online') { el.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"; el.title = "Cloud Synced"; }
+            else if (status === 'error') { el.className = "w-2 h-2 rounded-full bg-red-500"; el.title = "Sync Error"; }
+            else { el.className = "w-2 h-2 rounded-full bg-gray-600"; el.title = "Offline"; }
         }
 
         async function saveData(forcePush = false) {
             localStorage.setItem('mindhealing_data_v4_2', JSON.stringify(appData));
-            
             if (db && SYNC_ID) {
                 const { setDoc, doc } = window.firebaseModules;
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindhealing-standalone';
-                try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'mindhealing_users', SYNC_ID), appData, { merge: true });
-                    updateSyncStatus('online');
-                } catch(e) {
-                    console.error("Push failed", e);
-                    updateSyncStatus('error');
+                try { 
+                    // Using merge: true for regular saves to handle concurrent edits
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'mindhealing_users', SYNC_ID), appData, { merge: true }); 
+                    updateSyncStatus('online'); 
+                }
+                catch(e) { updateSyncStatus('error'); }
+            }
+        }
+
+        // --- NEW: SURGICAL DELETE FUNCTION ---
+        async function deleteCurrentDay() {
+            if(confirm(`Delete all data for ${selectedDateStr}? This will reset the day to 'Empty'.`)) {
+                // 1. Delete Locally
+                delete appData[selectedDateStr];
+                localStorage.setItem('mindhealing_data_v4_2', JSON.stringify(appData));
+                
+                // 2. Update UI immediately
+                selectDate(selectedDateStr);
+
+                // 3. Delete from Cloud (Surgical)
+                if (db && SYNC_ID) {
+                    const { updateDoc, doc, deleteField } = window.firebaseModules;
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindhealing-standalone';
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'mindhealing_users', SYNC_ID);
+                    
+                    try {
+                        // Specifically delete ONLY this key from the Firestore document
+                        await updateDoc(docRef, {
+                            [selectedDateStr]: deleteField()
+                        });
+                        updateSyncStatus('online');
+                        console.log("Cloud delete successful");
+                    } catch(e) {
+                        console.error("Delete failed, fallback to full sync", e);
+                        // If updateDoc fails (e.g. doc doesn't exist), standard save might fix it eventually
+                        saveData(); 
+                    }
                 }
             }
-        }
-
-        // --- SETTINGS LOGIC ---
-        function toggleSettings() {
-            document.getElementById('settingsModal').classList.toggle('hidden');
-        }
-
-        function generateNewSyncId() {
-            const newId = generateUUID();
-            document.getElementById('syncIdInput').value = newId;
-        }
-
-        function saveSettings() {
-            const apiKey = document.getElementById('apiKeyInput').value.trim();
-            const syncId = document.getElementById('syncIdInput').value.trim();
-            const fbConfigStr = document.getElementById('firebaseConfigInput').value.trim();
-
-            if(apiKey) {
-                localStorage.setItem('gemini_api_key', apiKey);
-                API_KEY = apiKey;
-            }
-            
-            if(syncId && syncId !== SYNC_ID) {
-                localStorage.setItem('mindhealing_sync_id', syncId);
-                SYNC_ID = syncId;
-                if(unsubscribeSnap) unsubscribeSnap();
-                initCloud(); 
-            }
-
-            if(fbConfigStr) {
-                try {
-                    const conf = JSON.parse(fbConfigStr);
-                    localStorage.setItem('mindhealing_fb_config', JSON.stringify(conf));
-                    FIREBASE_CONFIG = conf;
-                    if(unsubscribeSnap) unsubscribeSnap();
-                    initCloud();
-                } catch(e) {
-                    alert("Invalid JSON for Firebase Config");
-                    return;
-                }
-            }
-
-            toggleSettings();
-            alert("Settings Saved. Connecting...");
         }
 
         // --- CORE FUNCTIONS ---
+        // (Toggle Settings, Export, Import, Reset same as previous version)
+        function toggleSettings() { document.getElementById('settingsModal').classList.toggle('hidden'); }
+        function generateNewSyncId() { document.getElementById('syncIdInput').value = generateUUID(); }
+        function saveSettings() {
+             const apiKey = document.getElementById('apiKeyInput').value.trim();
+            const syncId = document.getElementById('syncIdInput').value.trim();
+            const fbConfigStr = document.getElementById('firebaseConfigInput').value.trim();
+            if(apiKey) { localStorage.setItem('gemini_api_key', apiKey); API_KEY = apiKey; }
+            if(syncId && syncId !== SYNC_ID) { localStorage.setItem('mindhealing_sync_id', syncId); SYNC_ID = syncId; if(unsubscribeSnap) unsubscribeSnap(); initCloud(); }
+            if(fbConfigStr) { try { const conf = JSON.parse(fbConfigStr); localStorage.setItem('mindhealing_fb_config', JSON.stringify(conf)); FIREBASE_CONFIG = conf; if(unsubscribeSnap) unsubscribeSnap(); initCloud(); } catch(e) { alert("Invalid JSON for Firebase Config"); return; } }
+            toggleSettings(); alert("Settings Saved.");
+        }
         function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
+             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
             downloadAnchorNode.setAttribute("download", "mindhealing_backup_" + todayStr + ".json");
@@ -582,32 +427,15 @@
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
         }
-
         function importData(input) {
-            const file = input.files[0];
-            if (!file) return;
+            const file = input.files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const loadedData = JSON.parse(e.target.result);
-                    appData = loadedData;
-                    saveData();
-                    selectDate(todayStr); 
-                    alert("Backup restored.");
-                } catch(err) { alert("Error parsing JSON."); }
-            };
+            reader.onload = function(e) { try { const loadedData = JSON.parse(e.target.result); appData = loadedData; saveData(); selectDate(todayStr); alert("Backup restored."); } catch(err) { alert("Error parsing JSON."); } };
             reader.readAsText(file);
         }
+        function resetAllData() { if (confirm("⚠️ DANGER: PERMANENTLY DELETE all data?")) { if (confirm("Really?")) { localStorage.removeItem('mindhealing_data_v4_2'); location.reload(); } } }
 
-        function resetAllData() {
-            if (confirm("⚠️ DANGER: PERMANENTLY DELETE all data?")) {
-                if (confirm("Really? This cannot be undone.")) {
-                    localStorage.removeItem('mindhealing_data_v4_2');
-                    location.reload();
-                }
-            }
-        }
-
+        // --- NEW: GHOST DAY LOGIC & SELECT DATE ---
         function ensureDataExists(dateStr) {
             if(!appData[dateStr]) {
                 appData[dateStr] = { habits: { noFP: false }, journal: "" };
@@ -617,7 +445,6 @@
 
         function selectDate(dateStr) {
             selectedDateStr = dateStr;
-            ensureDataExists(dateStr);
             
             const [y, m, d] = dateStr.split('-').map(Number);
             const dateObj = new Date(y, m - 1, d); 
@@ -625,8 +452,14 @@
             const options = { weekday: 'long', month: 'long', day: 'numeric' };
             document.getElementById('currentDateDisplay').innerText = dateObj.toLocaleDateString('en-US', options);
             document.getElementById('calMonthName').innerText = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
-            document.getElementById('journalEntry').value = appData[selectedDateStr].journal || "";
             
+            const hasData = !!appData[selectedDateStr];
+            document.getElementById('journalEntry').value = hasData ? (appData[selectedDateStr].journal || "") : "";
+            
+            const deleteBtn = document.getElementById('deleteDayBtn');
+            if (hasData) deleteBtn.classList.remove('hidden');
+            else deleteBtn.classList.add('hidden');
+
             const backBtn = document.getElementById('backToTodayBtn');
             if (dateStr === todayStr) backBtn.classList.add('hidden');
             else backBtn.classList.remove('hidden');
@@ -635,8 +468,10 @@
             renderMonthlyCalendar();
             
             let completed = 0;
-            const dayHabits = appData[selectedDateStr].habits;
-            habits.forEach(h => { if(dayHabits[h]) completed++; });
+            if (hasData) {
+                const dayHabits = appData[selectedDateStr].habits;
+                habits.forEach(h => { if(dayHabits[h]) completed++; });
+            }
             document.getElementById('completionDisplay').innerText = Math.round((completed / habits.length) * 100) + "%";
 
             let streak = 0;
@@ -662,6 +497,56 @@
             if(currentMainView === 'chart') renderChart(); 
         }
 
+        // --- CHECKLIST RENDERER (With Accordion) ---
+        function renderChecklist() {
+            const listContainer = document.getElementById('habitList');
+            listContainer.innerHTML = '';
+            
+            const currentData = appData[selectedDateStr] ? appData[selectedDateStr].habits : {};
+            const groups = { 'morning': 'Morning (Activation)', 'work': 'Work Block', 'evening': 'Evening (Wind Down)' };
+            
+            for (const [type, title] of Object.entries(groups)) {
+                const groupDiv = document.createElement('div');
+                groupDiv.innerHTML = `<div class="text-[10px] font-bold text-teal-600 uppercase mb-2 tracking-wider mt-4 first:mt-0">${title}</div>`;
+                
+                const groupHabits = habitConfig.filter(h => h.type === type);
+                
+                groupHabits.forEach(habit => {
+                    const isChecked = currentData[habit.id] === true;
+                    const colorClass = habit.id === 'noFP' ? (isChecked ? 'bg-green-500 border-green-500' : 'bg-red-900/20 border-red-900') : (isChecked ? 'bg-teal-500 border-teal-500' : 'border-gray-600 group-hover:border-teal-400');
+                    const textColor = habit.id === 'noFP' ? 'text-red-200' : 'text-gray-200';
+
+                    const item = document.createElement('div');
+                    item.className = "mb-3";
+                    item.innerHTML = `
+                        <div class="flex items-start group select-none">
+                            <div class="cursor-pointer pt-1" onclick="toggleHabit('${habit.id}')">
+                                <div class="w-5 h-5 border rounded flex items-center justify-center transition ${colorClass}">
+                                    ${isChecked ? '<i class="fa-solid fa-check text-white text-xs"></i>' : ''}
+                                </div>
+                            </div>
+                            <div class="ml-3 flex-grow">
+                                <div class="flex items-center justify-between cursor-pointer" onclick="toggleAccordion('${habit.id}')">
+                                    <p class="text-sm font-medium ${textColor} group-hover:text-white transition">${habit.label}</p>
+                                    <i class="fa-solid fa-circle-info text-slate-600 hover:text-teal-400 text-xs p-1"></i>
+                                </div>
+                                <div id="info-${habit.id}" class="habit-info text-xs text-gray-400 bg-slate-800/50 rounded p-2 border-l-2 border-teal-500/30">
+                                    ${habit.desc}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    groupDiv.appendChild(item);
+                });
+                listContainer.appendChild(groupDiv);
+            }
+        }
+
+        function toggleAccordion(id) {
+            const el = document.getElementById(`info-${id}`);
+            el.classList.toggle('expanded');
+        }
+
         function toggleHabit(habitId) {
             ensureDataExists(selectedDateStr);
             const current = appData[selectedDateStr].habits[habitId];
@@ -673,44 +558,16 @@
         function saveJournal() {
             ensureDataExists(selectedDateStr);
             appData[selectedDateStr].journal = document.getElementById('journalEntry').value;
-            saveData();
-        }
-
-        function renderChecklist() {
-            const data = appData[selectedDateStr].habits;
-            habits.forEach(h => {
-                const box = document.getElementById('box-' + h);
-                const input = box.previousElementSibling;
-                const isChecked = data[h];
-                const tickIcon = '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>';
-                
-                if(input) input.checked = isChecked;
-                box.className = 'w-5 h-5 mt-1 border rounded flex items-center justify-center transition'; 
-                
-                if(isChecked) {
-                    if(h === 'noFP') box.classList.add('bg-green-500', 'border-green-500'); 
-                    else box.classList.add('bg-teal-500', 'border-teal-500'); 
-                    box.innerHTML = tickIcon;
-                } else {
-                    if(h === 'noFP') box.classList.add('bg-red-900/20', 'border-red-900'); 
-                    else box.classList.add('border-gray-600', 'group-hover:border-teal-400'); 
-                    box.innerHTML = '';
-                }
-            });
+            saveData(); 
         }
 
         function renderMonthlyCalendar() {
             const grid = document.getElementById('calendarGrid');
             grid.innerHTML = '';
-            
             const [y, m, d] = selectedDateStr.split('-').map(Number);
-            const viewDate = new Date(y, m - 1, 1);
-            
-            const year = viewDate.getFullYear();
-            const month = viewDate.getMonth();
-            const firstDayIndex = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            
+            const daysInMonth = new Date(y, m, 0).getDate();
+            const firstDayIndex = new Date(y, m - 1, 1).getDay();
+
             for (let i = 0; i < firstDayIndex; i++) {
                 const empty = document.createElement('div');
                 empty.className = 'cal-day status-empty opacity-20 cursor-default';
@@ -718,10 +575,10 @@
             }
 
             for (let day = 1; day <= daysInMonth; day++) {
-                const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const dStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                 const el = document.createElement('div');
                 el.innerText = day;
-                el.className = 'cal-day'; 
+                el.className = 'cal-day';
                 el.onclick = () => selectDate(dStr);
 
                 if (appData[dStr]) {
@@ -729,7 +586,7 @@
                     if (h.noFP === false) el.classList.add('status-relapse');
                     else {
                         const hasActivity = habits.some(hab => h[hab] === true);
-                        if(hasActivity) {
+                        if (hasActivity) {
                              let count = 0;
                              habits.forEach(hab => { if(hab !== 'noFP' && h[hab]) count++; });
                              if (count === (habits.length - 1)) el.classList.add('status-perfect');
@@ -737,23 +594,17 @@
                         }
                     }
                 }
-                
                 if (dStr === todayStr) el.classList.add('cal-today');
                 if (dStr === selectedDateStr) el.classList.add('cal-selected');
                 grid.appendChild(el);
             }
         }
-
+        
         function renderChart() {
             const ctx = document.getElementById('progressChart').getContext('2d');
-            
-            const [y, m, d] = selectedDateStr.split('-').map(Number);
-            const year = viewDate.getFullYear();
-            const month = viewDate.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            
-            let labels = [];
-            let datasets = {
+            const [y, m] = selectedDateStr.split('-').map(Number);
+            const daysInMonth = new Date(y, m, 0).getDate();
+            let labels = [], datasets = {
                 'coldShower': { label: 'Cold Shower', data: [], backgroundColor: '#2dd4bf' },
                 'bodyScan': { label: 'Body Scan', data: [], backgroundColor: '#60a5fa' },
                 'breathLunch': { label: 'Breath (Work)', data: [], backgroundColor: '#818cf8' },
@@ -764,9 +615,8 @@
             };
 
             for(let i=1; i<=daysInMonth; i++) {
-                const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                const dStr = `${y}-${String(m).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
                 labels.push(i);
-
                 if(appData[dStr]) {
                     const h = appData[dStr].habits;
                     if (h.noFP === false) {
@@ -785,128 +635,11 @@
                 }
             }
 
-            const chartData = {
-                labels: labels,
-                datasets: [
-                    datasets.coldShower, datasets.bodyScan, datasets.breathLunch,
-                    datasets.study, datasets.breathBed, datasets.noFP, datasets.relapse
-                ]
-            };
-
             if(myChart) myChart.destroy();
-
-            myChart = new Chart(ctx, {
-                type: 'bar',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { stacked: true, grid: { display: false }, ticks: { color: '#64748b' } },
-                        y: { stacked: true, display: false, max: 6 }
-                    },
-                    plugins: {
-                        legend: { display: false }, 
-                        tooltip: {
-                            enabled: true, 
-                            mode: 'nearest',
-                            intersect: true,
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            titleColor: '#fff',
-                            bodyColor: '#cbd5e1',
-                            callbacks: {
-                                title: (items) => `Day ${items[0].label}`,
-                                label: function(context) {
-                                    if(context.raw > 0) return `• ${context.dataset.label}`;
-                                    return null;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+            myChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: Object.values(datasets) }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, grid: { display: false }, ticks: { color: '#64748b' } }, y: { stacked: true, display: false, max: 6 } }, plugins: { legend: { display: false }, tooltip: { enabled: true, mode: 'nearest', intersect: true, backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#fff', bodyColor: '#cbd5e1', callbacks: { title: (items) => `Day ${items[0].label}`, label: function(context) { if(context.raw > 0) return `• ${context.dataset.label}`; return null; } } } } } });
         }
 
-        // --- NAVIGATION TABS ---
-        function switchMainView(viewName) {
-            currentMainView = viewName;
-            
-            ['calendar', 'chart', 'ai'].forEach(v => {
-                document.getElementById('view-' + v).classList.add('hidden');
-                document.getElementById('nav-' + v).classList.remove('border-teal-500', 'text-white');
-                document.getElementById('nav-' + v).classList.add('border-transparent', 'text-gray-400');
-            });
-
-            document.getElementById('view-' + viewName).classList.remove('hidden');
-            document.getElementById('nav-' + viewName).classList.add('border-teal-500', 'text-white');
-            document.getElementById('nav-' + viewName).classList.remove('border-transparent', 'text-gray-400');
-
-            const titles = { 'calendar': 'MONTHLY OVERVIEW', 'chart': 'HABIT ANALYTICS', 'ai': 'NEURAL REGULATION' };
-            document.getElementById('viewTitle').innerText = titles[viewName];
-
-            if(viewName === 'chart') renderChart();
-        }
-
-        function switchAITab(tab) {
-            ['analysis', 'monthly', 'reframe'].forEach(t => {
-                document.getElementById('ai-subview-' + t).classList.add('hidden');
-                document.getElementById('subtab-' + t).className = "px-3 py-1.5 rounded-md hover:bg-slate-700 text-gray-400 transition";
-            });
-
-            document.getElementById('ai-subview-' + tab).classList.remove('hidden');
-            
-            if (tab === 'reframe') {
-                document.getElementById('subtab-' + tab).className = "px-3 py-1.5 rounded-md bg-purple-800 text-white transition";
-            } else if (tab === 'monthly') {
-                document.getElementById('subtab-' + tab).className = "px-3 py-1.5 rounded-md bg-blue-800 text-white transition";
-            } else {
-                document.getElementById('subtab-' + tab).className = "px-3 py-1.5 rounded-md bg-teal-800 text-white transition";
-            }
-        }
-
-        // --- GEMINI AI ---
-        async function fetchUrgeAdvice() {
-            const msgBox = document.getElementById('aiUrgeMessage');
-            if(!API_KEY) { msgBox.innerHTML = "No API Key. Breathe."; return; }
-            const prompt = `ACT AS: Stoic Mentor. TARGET: Santiago. CONTEXT: Panic Button Pressed. TASK: 1 sentence biological reality check.`;
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
-                const data = await response.json();
-                if (data.candidates) {
-                    msgBox.innerHTML = `<i class="fa-solid fa-robot mr-2"></i> "${data.candidates[0].content.parts[0].text.trim()}"`;
-                    msgBox.classList.add('animate-pulse');
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        let timerInterval;
-        function startUrgeTimer() {
-            document.getElementById('urgeModal').classList.remove('hidden');
-            fetchUrgeAdvice(); 
-            let timeLeft = 20 * 60; 
-            const display = document.getElementById('timerDisplay');
-            clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                const m = Math.floor(timeLeft / 60);
-                const s = timeLeft % 60;
-                display.innerText = `${m}:${s < 10 ? '0'+s : s}`;
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    display.innerText = "SURFED.";
-                    display.classList.add('text-teal-400');
-                }
-                timeLeft--;
-            }, 1000);
-        }
-        function closeUrgeModal() {
-            document.getElementById('urgeModal').classList.add('hidden');
-            clearInterval(timerInterval);
-        }
-
+        // ... AI Functions ...
         async function analyzeDay() {
             const btn = document.getElementById('analyzeBtn');
             const output = document.getElementById('aiResponse');
@@ -917,57 +650,94 @@
             ensureDataExists(selectedDateStr);
             const currentHabits = appData[selectedDateStr].habits;
             
-            const readableData = {
-                "Morning Cold Shower": currentHabits.coldShower ? "Completed" : "Skipped",
-                "Morning Body Scan": currentHabits.bodyScan ? "Completed" : "Skipped",
-                "Mid-Day Breathing": currentHabits.breathLunch ? "Completed" : "Skipped",
-                "Study Session": currentHabits.study ? "Completed" : "Skipped",
-                "Pre-Sleep Breathing": currentHabits.breathBed ? "Completed" : "Skipped",
-                "Relapse Prevention (Clean Day)": currentHabits.noFP ? "SUCCESS (Stayed Clean)" : "RELAPSED"
+            const now = new Date();
+            const currentHour = now.getHours();
+            const isToday = selectedDateStr === todayStr;
+
+            const formatStatus = (isDone, type) => {
+                if (isDone) return "Completed";
+                if (!isToday) return "Skipped"; 
+                if (type === 'morning' && currentHour < 12) return "Pending (Morning active)";
+                if (type === 'work' && currentHour < 18) return "Pending (Work active)";
+                if (type === 'evening') return "Pending";
+                return "Skipped"; 
             };
 
-            const prompt = `ACT AS: MindHealing AI. TARGET: Santiago. DATE: ${selectedDateStr}. DATA: ${JSON.stringify(readableData)}. NOTE: "${journal}". TASK: Daily analysis. NO variable names. Natural, mentor-like conversation. < 170 words.`;
+            // Smart Logic for Relapse Prevention (NoFP)
+            let nofpStatus = "";
+            if (currentHabits.noFP) {
+                // Checked (User claims success)
+                if (isToday && currentHour < 21) { // Before 9 PM
+                     nofpStatus = "CLEAN SO FAR (Maintain Guard - Day not over)";
+                } else {
+                     nofpStatus = "SUCCESS (Clean Day Secured)";
+                }
+            } else {
+                // Unchecked
+                if (isToday) {
+                    nofpStatus = "IN PROGRESS (Current State: Vulnerable but Clean)";
+                } else {
+                    nofpStatus = "RELAPSED"; // Past day and unchecked
+                }
+            }
 
-            try {
+            const readableData = {
+                "Morning Cold Shower": formatStatus(currentHabits.coldShower, 'morning'),
+                "Morning Body Scan": formatStatus(currentHabits.bodyScan, 'morning'),
+                "Mid-Day Breathing": formatStatus(currentHabits.breathLunch, 'work'),
+                "Study Session": formatStatus(currentHabits.study, 'evening'),
+                "Pre-Sleep Breathing": formatStatus(currentHabits.breathBed, 'evening'),
+                "Relapse Prevention": nofpStatus
+            };
+
+             const prompt = `
+             ACT AS: MindHealing AI (Secure Attachment Figure). 
+             TARGET: Santiago. 
+             DATE: ${selectedDateStr}. TIME: ${now.toLocaleTimeString()}. 
+             DATA: ${JSON.stringify(readableData)}. 
+             NOTE: "${journal}". 
+             
+             TASK: Daily analysis. NO variable names. Natural conversation. < 150 words.
+             
+             SPECIFIC INSTRUCTIONS:
+             1. **KEEP IT SIMPLE.** Use easy, everyday language.
+             2. **NO HEADERS.** No "Data:" or "Analysis:" sections.
+             3. **NO VARIABLE NAMES.**
+             4. If 'Relapse Prevention' is 'CLEAN SO FAR': Acknowledge the good start, but remind him the battle isn't won until sleep.
+             5. If 'Relapse Prevention' is 'IN PROGRESS': He has NOT relapsed. He just hasn't checked the box yet. Encourage him to stay strong.
+             6. If 'Pending' items exist: Gently push him to do them now.
+             7. Only treat it as a 'Relapse' if the status explicitly says 'RELAPSED'.
+             `;
+
+             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
                 const data = await response.json();
                 if (data.candidates) output.innerHTML = marked.parse(data.candidates[0].content.parts[0].text);
             } catch (error) { output.innerText = "Connection Failed."; }
             btn.innerText = 'Analyze Day';
         }
-
+        
         async function analyzeMonth() {
             const btn = document.getElementById('analyzeMonthBtn');
             const output = document.getElementById('aiMonthlyResponse');
             if(!API_KEY) { toggleSettings(); return; }
-
-            btn.innerHTML = '<div class="loader"></div> Analyzing Month...';
-            const [y, m, d] = selectedDateStr.split('-').map(Number);
+            btn.innerHTML = '<div class="loader"></div>';
+             const [y, m, d] = selectedDateStr.split('-').map(Number);
             const daysInMonth = new Date(y, m, 0).getDate();
-            let monthData = [];
-            let cleanDays = 0;
-            let relapses = 0;
-            
+            let monthData = []; let cleanDays = 0; let relapses = 0;
             for(let i=1; i<=daysInMonth; i++) {
                 const dStr = `${y}-${String(m).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
                 if(appData[dStr]) {
                     monthData.push({ date: i, habits: appData[dStr].habits });
-                    if(appData[dStr].habits.noFP) cleanDays++;
-                    else if(appData[dStr].habits.noFP === false) relapses++;
+                    if(appData[dStr].habits.noFP) cleanDays++; else if(appData[dStr].habits.noFP === false) relapses++;
                 }
             }
-
-            const prompt = `ACT AS: MindHealing AI. CONTEXT: Monthly Review. DATA: ${JSON.stringify(monthData)}. STATS: ${cleanDays} clean, ${relapses} relapses. TASK: Comprehensive review. NO lists. Natural, encouraging, scientific. < 400 words.`;
-
-            try {
+            const prompt = `ACT AS: MindHealing AI. MONTH REVIEW. DATA: ${JSON.stringify(monthData)}. STATS: ${cleanDays} clean, ${relapses} relapses. TASK: Comprehensive review. NO lists. Natural. < 400 words.`;
+             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
                 const data = await response.json();
                 if (data.candidates) output.innerHTML = marked.parse(data.candidates[0].content.parts[0].text);
@@ -976,25 +746,81 @@
         }
 
         async function reframeThought() {
-            const btn = document.getElementById('reframeBtn');
+             const btn = document.getElementById('reframeBtn');
             const output = document.getElementById('reframeOutput');
             const thought = document.getElementById('anxiousThought').value;
             if(!API_KEY) { toggleSettings(); return; }
             if(!thought) return;
-
             btn.innerHTML = '<div class="loader"></div>';
-            const prompt = `ACT AS: CBT Therapist. REFRAME THOUGHT: "${thought}". < 170 words.`;
+            
+            const prompt = `
+            ACT AS: A wise, calm friend (using CBT principles).
+            USER: Santiago (Dealing with anxiety).
+            ANXIOUS THOUGHT: "${thought}"
+            
+            TASK: Help him see this differently.
+            
+            CRITICAL RULES:
+            1. **DIRECT ANSWER ONLY.** Do NOT explain your methods (no "Thought Process", "Core Emotion", "Distortion").
+            2. **SIMPLE LANGUAGE.** Talk like a normal person, not a therapist.
+            3. **MAX 150 WORDS.**
+            4. Validate briefly, then offer a grounded, stoic perspective shift.
+            `;
 
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
                 const data = await response.json();
                 if (data.candidates) output.innerHTML = marked.parse(data.candidates[0].content.parts[0].text);
             } catch (error) { output.innerText = "Connection Failed."; }
             btn.innerText = 'Reframe';
+         }
+
+        async function fetchUrgeAdvice() {
+             const msgBox = document.getElementById('aiUrgeMessage');
+            if(!API_KEY) { msgBox.innerHTML = "No API Key. Breathe."; return; }
+            const prompt = `ACT AS: Stoic Mentor. TARGET: Santiago. CONTEXT: Panic Button Pressed. TASK: 1 sentence biological reality check.`;
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await response.json();
+                if (data.candidates) { msgBox.innerHTML = `<i class="fa-solid fa-robot mr-2"></i> "${data.candidates[0].content.parts[0].text.trim()}"`; msgBox.classList.add('animate-pulse'); }
+            } catch (e) { console.error(e); }
+         }
+        let timerInterval;
+        function startUrgeTimer() { document.getElementById('urgeModal').classList.remove('hidden'); fetchUrgeAdvice(); let timeLeft = 20 * 60; const display = document.getElementById('timerDisplay'); clearInterval(timerInterval); timerInterval = setInterval(() => { const m = Math.floor(timeLeft / 60); const s = timeLeft % 60; display.innerText = `${m}:${s < 10 ? '0'+s : s}`; if (timeLeft <= 0) { clearInterval(timerInterval); display.innerText = "SURFED."; display.classList.add('text-teal-400'); } timeLeft--; }, 1000); }
+        function closeUrgeModal() { document.getElementById('urgeModal').classList.add('hidden'); clearInterval(timerInterval); }
+        
+        function switchMainView(viewName) {
+            currentMainView = viewName;
+            ['calendar', 'chart', 'ai'].forEach(v => {
+                document.getElementById('view-' + v).classList.add('hidden');
+                document.getElementById('nav-' + v).classList.remove('border-teal-500', 'text-white');
+                document.getElementById('nav-' + v).classList.add('border-transparent', 'text-gray-400');
+            });
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            document.getElementById('nav-' + viewName).classList.add('border-teal-500', 'text-white');
+            document.getElementById('nav-' + viewName).classList.remove('border-transparent', 'text-gray-400');
+            const titles = { 'calendar': 'MONTHLY OVERVIEW', 'chart': 'HABIT ANALYTICS', 'ai': 'NEURAL REGULATION' };
+            document.getElementById('viewTitle').innerText = titles[viewName];
+            if(viewName === 'chart') renderChart();
+        }
+
+        function switchAITab(tab) {
+            ['analysis', 'monthly', 'reframe'].forEach(t => {
+                document.getElementById('ai-subview-' + t).classList.add('hidden');
+                document.getElementById('subtab-' + t).className = "px-3 py-1.5 rounded-md hover:bg-slate-700 text-gray-400 transition";
+            });
+            document.getElementById('ai-subview-' + tab).classList.remove('hidden');
+            if (tab === 'reframe') {
+                document.getElementById('subtab-' + tab).className = "px-3 py-1.5 rounded-md bg-purple-800 text-white transition";
+            } else if (tab === 'monthly') {
+                document.getElementById('subtab-' + tab).className = "px-3 py-1.5 rounded-md bg-blue-800 text-white transition";
+            } else {
+                document.getElementById('subtab-' + tab).className = "px-3 py-1.5 rounded-md bg-teal-800 text-white transition";
+            }
         }
     </script>
 </body>
